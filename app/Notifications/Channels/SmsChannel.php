@@ -28,8 +28,8 @@ class SmsChannel
                 'Content-Type' => 'application/json',
             ])->post(config('services.backbone_sms.url'), [
                 'to' => $phoneNumber,
-                'message' => $message,
-                'from' => config('services.backbone_sms.from'),
+                'message' => 'message',
+                'from' => 'HavenPlus',
             ]);
 
             Log::info("SMS Sent: " . $response->body());
