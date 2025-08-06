@@ -53,12 +53,13 @@ class SMSController extends Controller
 
         $phoneNumber = $request->input('to');
         $message = $request->input('message');
+        $from = $request->input('from');
 
         // Assuming you have a User or Notifiable model instance. For example, logged in user:
         $user = Auth::user();
 
         // Send notification via the custom sms channel
-        $user->notify(new SendSmsNotification($message, $phoneNumber));
+        $user->notify(new SendSmsNotification($message, $phoneNumber, $from));
 
         return response()->json(['message' => 'SMS sent (or queued) successfully']);
     }

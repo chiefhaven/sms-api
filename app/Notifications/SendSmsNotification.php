@@ -14,13 +14,15 @@ class SendSmsNotification extends Notification
 
     protected string $message;
     protected string $phoneNumber;
+    protected string $from;
     /**
      * Create a new notification instance.
      */
-    public function __construct($message, $phoneNumber)
+    public function __construct($message, $phoneNumber, $from)
     {
         $this->message = $message;
         $this->phoneNumber = $phoneNumber;
+        $this->from = $from;
     }
 
     /**
@@ -51,6 +53,7 @@ class SendSmsNotification extends Notification
 
         return [
             'message' => $this->message,
+            'from' => $this->from,
             'to' => $formattedNumber,
         ];
     }

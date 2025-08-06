@@ -15,6 +15,7 @@ class SmsChannel
 
         $message = $notification->toSms($notifiable)['message'];
         $phoneNumber = $notification->toSms($notifiable)['to'];
+        $from = $notification->toSms($notifiable)['from'];
 
         if (!$phoneNumber) {
             Log::error("SMS Error: No phone number found for the recipient.");
@@ -29,7 +30,7 @@ class SmsChannel
             ])->post(config('services.backbone_sms.url'), [
                 'to' => $phoneNumber,
                 'message' => $message,
-                'from' => config('services.backbone_sms.from'),
+                'from' => $from,
             ]);
 
             Log::info("SMS Sent: " . $response);
