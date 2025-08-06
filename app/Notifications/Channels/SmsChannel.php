@@ -4,6 +4,7 @@ namespace App\Notifications\Channels;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Auth;
 
 class SmsChannel
 {
@@ -12,7 +13,11 @@ class SmsChannel
         if (!method_exists($notification, 'toSms')) {
             return;
         }
-
+        $user = Auth::user() ?? null;
+        if (!$user || !$user->client) {
+            Log::error("SMS Error: User or client not found for the recipient.");
+            return;
+        }
         $message = $notification->toSms($notifiable)['message'];
         $phoneNumber = $notification->toSms($notifiable)['to'];
         $from = $notification->toSms($notifiable)['from'];
@@ -33,7 +38,11 @@ class SmsChannel
                 'from' => $from,
             ]);
 
-            Log::info("SMS Sent: " . $response);
+            Log::info("SMS Sent: " . $response->body());
+
+            if ($response->successiful()) {
+                Log::info("SMS Sent: " . $response->body());
+            }
 
             if ($response->failed()) {
                 Log::error("SMS Failed: " . $response->body());
