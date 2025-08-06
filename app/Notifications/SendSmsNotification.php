@@ -46,9 +46,36 @@ class SendSmsNotification extends Notification
 
     public function toSms($notifiable)
     {
+        // Validate and format the phone number
+        $formattedNumber = $this->formatPhoneNumber($this->phoneNumber);
+
         return [
             'message' => $this->message,
+            'to' => $formattedNumber,
         ];
+    }
+
+    protected function formatPhoneNumber(string $number): string
+    {
+        // Remove all non-digit characters
+        $cleaned = preg_replace('/[^0-9]/', '', $number);
+
+        // Handle local numbers (assuming Malawi number format)
+        if (strlen($cleaned) === 9 && strpos($cleaned, '0') === 0) {
+            return '+265' . substr($cleaned, 1);
+        }
+
+        // Handle international numbers missing +
+        if (strlen($cleaned) > 9 && strpos($cleaned, '265') === 0) {
+            return '+' . $cleaned;
+        }
+
+        // Return as-is if already properly formatted
+        if (strpos($number, '+') === 0) {
+            return $number;
+        }
+
+        throw new \InvalidArgumentException("Invalid phone number format: {$number}");
     }
 
     /**
