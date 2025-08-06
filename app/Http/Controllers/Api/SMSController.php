@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Api\SMS;
 use App\Http\Requests\StoreSMSRequest;
 use App\Http\Requests\UpdateSMSRequest;
+use App\Models\SmsLog;
 use App\Notifications\SendSms;
 use App\Notifications\SendSmsNotification;
 use Illuminate\Http\Request;
@@ -95,7 +96,6 @@ class SMSController extends Controller
         }
 
         try {
-            // Send notification with queue fallback
             $notification = new SendSmsNotification(
                 $validated['message'],
                 $validated['to'],
@@ -104,35 +104,50 @@ class SMSController extends Controller
 
             $gatewayResponse = $user->notify($notification);
 
-            if ($gatewayResponse == false) {
-                Log::error("SMS Failed: Notification not sent", [
+            // Validate gateway response structure
+            if (!$this->isValidGatewayResponse($gatewayResponse)) {
+                Log::error("SMS Failed: Invalid gateway response", [
                     'user_id' => $user->id,
-                    'recipient' => $validated['to'],
-                    'message' => $validated['message']
+                    'client_id' => $user->client->id,
+                    'response' => $gatewayResponse
                 ]);
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to send SMS',
-                    'error_code' => 'NOTIFICATION_FAILURE'
-                ], 500);
+                    'message' => 'Invalid response from SMS gateway',
+                    'error_code' => 'GATEWAY_ERROR'
+                ], 502);
             }
+
             // Process successful response
             $actualCost = $this->calculateActualCost($gatewayResponse, $estimatedCost);
             $newBalance = $user->client->account_balance - $actualCost;
 
-            $user->client->update(['account_balance' => $newBalance]);
+            // Begin database transaction for atomic operations
+            DB::transaction(function () use ($user, $newBalance, $gatewayResponse, $validated, $smsParts, $actualCost) {
+                $user->client->update(['account_balance' => $newBalance]);
 
-            // Create audit log
-            SmsLog::create([
-                'user_id' => $user->id,
-                'client_id' => $user->client->id,
+                SmsLog::create([
+                    'user_id' => $user->id,
+                    'client_id' => $user->client->id,
+                    'message_id' => $gatewayResponse['message_id'],
+                    'recipient' => $validated['to'],
+                    'message' => $validated['message'],
+                    'message_parts' => $smsParts,
+                    'cost' => $actualCost,
+                    'new_balance' => $newBalance,
+                    'status' => 'delivered',
+                    'gateway_status' => $gatewayResponse['status'] ?? null,
+                    'gateway_response' => $gatewayResponse
+                ]);
+            });
+
+            // Log successful delivery
+            Log::info("SMS Delivered Successfully", [
                 'message_id' => $gatewayResponse['message_id'],
-                'recipient' => $validated['to'],
-                'message_parts' => $smsParts,
+                'client_id' => $user->client->id,
                 'cost' => $actualCost,
-                'status' => 'delivered',
-                'gateway_response' => $gatewayResponse
+                'balance_change' => -$actualCost
             ]);
 
             return response()->json([
@@ -141,12 +156,7 @@ class SMSController extends Controller
                 'data' => $this->formatSuccessResponse($validated, $gatewayResponse, $smsParts, $newBalance)
             ]);
 
-        } catch (ValidationException $e) {
-            // Special handling for validation errors
-            return $this->handleValidationError($e, $request);
-
         } catch (\Exception $e) {
-            // Centralized error handling
             return $this->handleSmsError($e, $user, $request);
         }
     }
