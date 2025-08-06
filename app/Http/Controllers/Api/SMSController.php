@@ -211,6 +211,15 @@ class SMSController extends Controller
         ], 500);
     }
 
+    // Helper method to validate gateway response
+    protected function isValidGatewayResponse($response): bool
+    {
+        return is_array($response) &&
+            isset($response['success']) &&
+            $response['success'] === true &&
+            isset($response['message_id']);
+    }
+
     /**
      * Display the specified resource.
      */
