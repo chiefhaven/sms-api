@@ -53,10 +53,6 @@ class SMSController extends Controller
 
         $gatewayResponse = $user->notify($notification);
 
-        if (!$gatewayResponse['success']) {
-            throw new \RuntimeException($gatewayResponse['error'] ?? 'Delivery failed');
-        }
-
         // Process successful response
         $actualCost = $gatewayResponse['cost'];
         $newBalance = $user->client->account_balance - $actualCost;
