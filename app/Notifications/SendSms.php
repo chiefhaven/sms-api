@@ -18,7 +18,7 @@ class SendSms extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        return [SmsChannel::class];
+        return ['sms', SmsChannel::class];
     }
 
     public function toSms($notifiable)

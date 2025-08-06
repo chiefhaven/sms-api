@@ -14,7 +14,7 @@ class SmsChannel
         }
 
         $message = $notification->toSms($notifiable);
-        $phoneNumber = $notifiable->client->phone ?? null;
+        $phoneNumber = '0882547343' ?? null;
 
         if (!$phoneNumber) {
             Log::error("SMS Error: No phone number found for the recipient.");

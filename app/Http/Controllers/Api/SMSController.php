@@ -58,7 +58,7 @@ class SMSController extends Controller
         $user = Auth::user();
 
         // Send notification via the custom sms channel
-        $user->notify(new SendSms($message, $phoneNumber));
+        $user->notify(new SendSmsNotification($message, $phoneNumber));
 
         return response()->json(['message' => 'SMS sent (or queued) successfully']);
     }
