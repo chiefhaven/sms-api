@@ -14,41 +14,93 @@ use Illuminate\Validation\ValidationException;
 class SMSController extends Controller
 {
     public function sendSms(Request $request)
-    {
-        $validated = $this->validateRequest($request);
-        $user = Auth::user();
+{
+    $validated = $request->validate([
+        'to' => ['required', 'regex:/^\+265\d{9}$/'], // Malawi specific format
+        'message' => 'required|string|max:1600',
+        'from' => ['nullable', 'string', 'max:11', 'regex:/^[a-zA-Z0-9]+$/']
+    ]);
 
-        if (!$user?->client) {
-            return $this->errorResponse('Account not properly configured', 'ACCOUNT_ERROR', 403);
-        }
-
-        $messageMetrics = $this->calculateMessageMetrics($validated['message'], $user->client->cost_per_sms);
-
-        if ($user->client->account_balance < $messageMetrics['estimatedCost']) {
-            return $this->insufficientBalanceResponse($user, $messageMetrics['estimatedCost'], $validated['to']);
-        }
-
-        try {
-            $notification = new SendSmsNotification(
-                $validated['message'],
-                $validated['to'],
-                $validated['from'] ?? $user->client->sender_id
-            );
-
-            $gatewayResponse = $user->notify($notification);
-
-            if (!$this->isValidGatewayResponse($gatewayResponse)) {
-                return $this->gatewayErrorResponse($user, $gatewayResponse);
-            }
-
-            return $this->processSuccessfulResponse($user, $validated, $gatewayResponse, $messageMetrics);
-
-        } catch (ValidationException $e) {
-            return $this->handleValidationError($e, $request);
-        } catch (\Exception $e) {
-            return $this->handleSmsError($e, $user, $request);
-        }
+    $user = Auth::user();
+    if (!$user?->client) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Account not properly configured',
+            'error_code' => 'ACCOUNT_ERROR'
+        ], 403);
     }
+
+    $messageLength = strlen($validated['message']);
+    $smsParts = ceil($messageLength / 153); // GSM encoding
+    $estimatedCost = $user->client->cost_per_sms * $smsParts;
+
+    if ($user->client->account_balance < $estimatedCost) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Insufficient balance',
+            'required' => $estimatedCost,
+            'current_balance' => $user->client->account_balance,
+            'error_code' => 'INSUFFICIENT_FUNDS'
+        ], 402);
+    }
+
+    try {
+        $notification = new SendSmsNotification(
+            $validated['message'],
+            $validated['to'],
+            $validated['from'] ?? $user->client->sender_id
+        );
+
+        $gatewayResponse = $user->notify($notification);
+
+        if (!$gatewayResponse['success']) {
+            throw new \RuntimeException($gatewayResponse['error'] ?? 'Delivery failed');
+        }
+
+        // Process successful response
+        $actualCost = $gatewayResponse['cost'];
+        $newBalance = $user->client->account_balance - $actualCost;
+
+        DB::transaction(function () use ($user, $newBalance, $gatewayResponse, $validated, $smsParts) {
+            $user->client->update(['account_balance' => $newBalance]);
+
+            SmsLog::create([
+                'user_id' => $user->id,
+                'client_id' => $user->client->id,
+                'message_id' => $gatewayResponse['message_id'],
+                'recipient' => $validated['to'],
+                'message' => $validated['message'],
+                'message_parts' => $smsParts,
+                'cost' => $gatewayResponse['cost'],
+                'new_balance' => $newBalance,
+                'status' => 'delivered',
+                'gateway_response' => $gatewayResponse['raw_response']
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'SMS delivered successfully',
+            'data' => [
+                'message_id' => $gatewayResponse['message_id'],
+                'recipient' => $gatewayResponse['recipient'],
+                'cost' => $gatewayResponse['cost'],
+                'new_balance' => $newBalance,
+                'parts' => $smsParts,
+                'gateway_status' => $gatewayResponse['status']
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('SMS processing failed: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send SMS',
+            'error' => config('app.debug') ? $e->getMessage() : null,
+            'error_code' => 'PROCESSING_ERROR'
+        ], 500);
+    }
+}
 
     // Helper Methods
 
