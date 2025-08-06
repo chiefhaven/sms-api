@@ -46,10 +46,9 @@ class SendSmsNotification extends Notification
 
     public function toSms($notifiable)
     {
-        // return [
-        //     'message' => $this->message,
-        // ];
-        return sprintf('Test');
+        return [
+            'message' => $this->message,
+        ];
     }
 
     /**
