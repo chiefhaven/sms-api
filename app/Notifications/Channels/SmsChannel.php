@@ -40,8 +40,20 @@ class SmsChannel
 
             Log::info("SMS Sent: " . $response->body());
 
-            if ($response->successiful()) {
-                Log::info("SMS Sent: " . $response->body());
+            if ($response->successful()) {
+
+                $responseData = $response->json();
+
+                Log::info("SMS Sent Successfully", [
+                    'message_id' => $responseData['msgId'] ?? null,
+                    'recipient' => $responseData['to'] ?? null,
+                    'cost' => $responseData['cost'] ?? null,
+                    'status' => $responseData['status'] ?? null,
+                    'status_code' => $responseData['statusCode'] ?? null,
+                    'gateway_response' => $responseData
+                ]);
+
+                return true;
             }
 
             if ($response->failed()) {
