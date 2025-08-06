@@ -103,11 +103,19 @@ class SMSController extends Controller
             );
 
             $gatewayResponse = $user->notify($notification);
+            if (!$gatewayResponse) {
+                Log::error("SMS Failed: Notification not sent", [
+                    'user_id' => $user->id,
+                    'recipient' => $validated['to'],
+                    'message' => $validated['message']
+                ]);
 
-            if (!$gatewayResponse || !$gatewayResponse['status'] === 'SUCCESS') {
-                throw new \RuntimeException($gatewayResponse['error'] ?? 'Unknown gateway error');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to send SMS',
+                    'error_code' => 'NOTIFICATION_FAILURE'
+                ], 500);
             }
-
             // Process successful response
             $actualCost = $this->calculateActualCost($gatewayResponse, $estimatedCost);
             $newBalance = $user->client->account_balance - $actualCost;
