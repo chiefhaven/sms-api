@@ -104,7 +104,7 @@ class SMSController extends Controller
 
             $gatewayResponse = $user->notify($notification);
 
-            if (!$gatewayResponse || !$gatewayResponse['success']) {
+            if (!$gatewayResponse || !$gatewayResponse['status'] === 'SUCCESS') {
                 throw new \RuntimeException($gatewayResponse['error'] ?? 'Unknown gateway error');
             }
 
