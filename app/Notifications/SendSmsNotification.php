@@ -1,10 +1,15 @@
 <?php
+
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Bus\Queueable;
 
-class SendSmsNotification extends Notification
+class SendSmsNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     protected $message;
     protected $phoneNumber;
 
@@ -21,7 +26,11 @@ class SendSmsNotification extends Notification
 
     public function toSms($notifiable)
     {
-        return $this->message;
+        return [
+            'message' => $this->message,
+            'phone' => $this->phoneNumber,
+            'client_id' => $notifiable->client->id ?? null
+        ];
     }
 
     public function routeNotificationForSms($notifiable)

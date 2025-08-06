@@ -36,9 +36,9 @@ return [
     ],
 
     'backbone_sms' => [
-            'url' => env('SMS_URL'),
-            'token' => env('SMS_AUTH_KEY'),
-            'from' => env('SMS_SENDER_ID'),
-        ],
+        'url' => env('BACKBONE_SMS_URL'),
+        'token' => env('BACKBONE_SMS_TOKEN'),
+        'from' => env('BACKBONE_SMS_FROM'),
+    ],
 
 ];

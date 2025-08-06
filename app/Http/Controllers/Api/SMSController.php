@@ -45,54 +45,88 @@ class SMSController extends Controller
 
     public function sendSms(Request $request)
     {
-
-        $request->validate([
+        // Validate request
+        $validated = $request->validate([
             'to' => ['required', 'regex:/^\+?[1-9]\d{7,14}$/'],
-            'message' => 'required|string|max:160',
+            'message' => 'required|string|max:1600',
         ]);
 
-        $user = auth()->user(); // or get the user by phone/email etc.
-        $message = $request->message;
-        $phoneNumber = $request->to;
+        // Get authenticated user
+        $user = auth()->user();
 
-        // Check if balance is sufficient before sending
-        if (!$user || !$user->client || $user->client->account_balance < $user->client->cost_per_sms) {
-            Log::error("SMS Error: Insufficient balance for user ID {$user->client->id}.");
+        // Verify user and client exist
+        if (!$user || !$user->client) {
+            Log::error("SMS Error: User or client not found", [
+                'user_id' => $user->id ?? null,
+                'ip' => $request->ip()
+            ]);
+
             return response()->json([
+                'success' => false,
+                'message' => 'User account not properly configured',
+                'error_code' => 'USER_NOT_CONFIGURED'
+            ], 403);
+        }
+
+        // Calculate message metrics
+        $messageLength = strlen($validated['message']);
+        $smsParts = ceil($messageLength / 160);
+        $estimatedCost = $user->client->cost_per_sms * $smsParts;
+        $currentBalance = $user->client->account_balance;
+
+        // Check account balance
+        if ($currentBalance < $estimatedCost) {
+            Log::warning("SMS Blocked: Insufficient balance", [
+                'client_id' => $user->client->id,
+                'required' => $estimatedCost,
+                'available' => $currentBalance,
+                'phone' => $validated['to']
+            ]);
+
+            return response()->json([
+                'success' => false,
                 'message' => 'Insufficient balance to send SMS',
+                'required_balance' => $estimatedCost,
+                'current_balance' => $currentBalance,
+                'error_code' => 'INSUFFICIENT_BALANCE'
             ], 402);
         }
 
-        // Send notification via the custom SMS channel and capture response
-        $notification = new SendSmsNotification($message, $phoneNumber);
-        $response = $user->notify($notification);
+        try {
+            // Send SMS notification
+            $user->notify(new SendSmsNotification($validated['message'], $validated['to']));
 
-        // You can return custom response if your channel returns a value
-        if (isset($response['status']) && $response['status'] === 'SUCCESS') {
+            Log::info("SMS Sent", [
+                'client_id' => $user->client->id,
+                'phone' => $validated['to'],
+                'message_length' => $messageLength,
+                'sms_parts' => $smsParts,
+                'estimated_cost' => $estimatedCost
+            ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'SMS sent successfully',
+                'to' => $validated['to'],
+                'message_length' => $messageLength,
+                'sms_parts' => $smsParts,
+                'estimated_cost' => $estimatedCost
+            ], 200);
 
-                if (!$user || !$user->client) {
-                    Log::error("SMS Error: User or client not found.");
-                    return false;
-                }
-
-                // Calculate message length and number of SMS parts
-                $messageLength = strlen($message);
-                $smsCount = ceil($messageLength / 160);
-                $cost = $user->client->cost_per_sms * $smsCount;
-                $newBalance = $user->client->acount_balance - $cost;
-
-                $user->client->update(['balance' => $newBalance]);
+        } catch (\Exception $e) {
+            Log::critical("SMS Processing Failed", [
+                'client_id' => $user->client->id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
 
             return response()->json([
-                'message' => 'SMS sent successfully',
-                'details' => $response
-            ], 200);
+                'success' => false,
+                'message' => 'Internal server error while processing SMS',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error_code' => 'INTERNAL_ERROR'
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Failed to send SMS',
-            'details' => $response ?? null
-        ], 500);
     }
 
     /**
