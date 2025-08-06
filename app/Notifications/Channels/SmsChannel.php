@@ -10,75 +10,110 @@ class SmsChannel
 {
     public function send($notifiable, Notification $notification)
     {
+        // Validate notification has required method
         if (!method_exists($notification, 'toSms')) {
-            return;
+            Log::error('SMS Notification missing toSms method', [
+                'notification' => get_class($notification),
+                'notifiable' => get_class($notifiable)
+            ]);
+            return false;
         }
-        $user = Auth::user() ?? null;
-        if (!$user || !$user->client) {
-            Log::error("SMS Error: User or client not found for the recipient.");
-            return;
-        }
-        $message = $notification->toSms($notifiable)['message'];
-        $phoneNumber = $notification->toSms($notifiable)['to'];
-        $from = $notification->toSms($notifiable)['from'];
 
-        if (!$phoneNumber) {
-            Log::error("SMS Error: No phone number found for the recipient.");
-            return;
+        // Get authenticated user
+        $user = Auth::user();
+        if (!$user || !$user->client) {
+            Log::error('SMS Error: Invalid user or client', [
+                'user_id' => $user->id ?? null
+            ]);
+            return false;
         }
 
         try {
+            // Get SMS data from notification
+            $smsData = $notification->toSms($notifiable);
+            $message = $smsData['message'] ?? '';
+            $phoneNumber = $smsData['to'] ?? null;
+            $senderId = $smsData['from'] ?? config('services.backbone_sms.from');
+
+            // Validate required fields
+            if (empty($message) || empty($phoneNumber)) {
+                Log::error('SMS Error: Missing message or recipient', [
+                    'has_message' => !empty($message),
+                    'has_recipient' => !empty($phoneNumber)
+                ]);
+                return false;
+            }
+
+            // Send SMS via Backbone API
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . config('services.backbone_sms.token'),
                 'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ])->post(config('services.backbone_sms.url'), [
+            ])
+            ->timeout(15) // 15 second timeout
+            ->retry(3, 500) // Retry 3 times with 500ms delay
+            ->post(config('services.backbone_sms.url'), [
                 'to' => $phoneNumber,
                 'message' => $message,
-                'from' => $from,
+                'from' => $senderId,
             ]);
 
-            Log::info("SMS Sent: " . $response->body());
+            // Process response
+            $responseData = $response->json();
+            $isSuccessful = $response->successful() &&
+                        ($responseData['status'] ?? null) === 'SUCCESS';
 
-            if ($response->successful()) {
-
+            if ($isSuccessful) {
                 // Calculate message metrics
                 $messageLength = strlen($message);
                 $smsParts = ceil($messageLength / 160);
-                $cost = $user->client->cost_per_sms * $smsParts;
-                $currentBalance = $user->client->account_balance - $cost;
+                $gatewayCost = $this->parseMoney($responseData['cost'] ?? '0');
+                $actualCost = $gatewayCost > 0 ? $gatewayCost : ($user->client->cost_per_sms * $smsParts);
+                $newBalance = $user->client->account_balance - $actualCost;
 
-                $responseData = $response->json();
+                // Update client balance
+                $user->client->update(['account_balance' => $newBalance]);
 
-                $responseData =  [
+                // Prepare response
+                $result = [
+                    'success' => true,
                     'message_id' => $responseData['msgId'] ?? null,
-                    'recipient' => $responseData['to'] ?? null,
-                    'cost' => $responseData['cost'] ?? null,
+                    'recipient' => $responseData['to'] ?? $phoneNumber,
+                    'message_length' => $messageLength,
+                    'sms_parts' => $smsParts,
+                    'cost' => $actualCost,
+                    'new_balance' => $newBalance,
                     'status' => $responseData['status'] ?? null,
                     'status_code' => $responseData['statusCode'] ?? null,
-                    'cost' => $cost,
-                    'current_balance' => $currentBalance,
+                    'gateway_response' => $responseData
                 ];
 
-                Log::info("SMS Sent Successfully", [
-                    'message_id' => $responseData['msgId'] ?? null,
-                    'recipient' => $responseData['to'] ?? null,
-                    'cost' => $responseData['cost'] ?? null,
-                    'status' => $responseData['status'] ?? null,
-                    'status_code' => $responseData['statusCode'] ?? null,
-                    'gateway_response' => $responseData,
-                    'cost' => $cost,
-                    'current_balance' => $currentBalance,
-                ]);
-
-                return $responseData;
+                Log::info('SMS Delivered Successfully', $result);
+                return $result;
             }
 
-            if ($response->failed()) {
-                Log::error("SMS Failed: " . $response->body());
-            }
+            // Handle failed response
+            $errorMessage = $responseData['desc'] ?? 'Unknown gateway error';
+            Log::error('SMS Delivery Failed', [
+                'error' => $errorMessage,
+                'status_code' => $responseData['statusCode'] ?? null,
+                'response' => $responseData
+            ]);
+            return false;
+
         } catch (\Exception $e) {
-            Log::error("Error sending SMS: " . $e->getMessage());
+            Log::critical('SMS Sending Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
         }
+    }
+
+    /**
+     * Parse money values from gateway (e.g. "MWK 14.0" => 14.0)
+     */
+    protected function parseMoney(string $value): float
+    {
+        return (float) preg_replace('/[^0-9.]/', '', $value);
     }
 }
