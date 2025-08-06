@@ -1,98 +1,31 @@
 <?php
-
 namespace App\Http\Controllers\Api;
+
 use App\Http\Controllers\Controller;
-use App\Models\Api\SMS;
-use App\Http\Requests\StoreSMSRequest;
-use App\Http\Requests\UpdateSMSRequest;
 use App\Models\SmsLog;
-use App\Notifications\SendSms;
 use App\Notifications\SendSmsNotification;
-use Illuminate\Http\Request;
-use Auth;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class SMSController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreSMSRequest $request)
-    {
-        // $sms = SMS::create($request->validated());
-
-        // $sms->send(); // Sends SMS using your logic
-
-        // return response()->json([
-        //     'message' => 'SMS sent successfully',
-        //     'sms' => $sms,
-        // ], 201);
-    }
-
     public function sendSms(Request $request)
     {
-        // Validate request with improved phone number validation
-        $validated = $request->validate([
-            'to' => ['required', 'regex:/^\+[1-9]\d{7,14}$/'], // Enforce + prefix
-            'message' => 'required|string|max:1600', // Increased limit for concatenated SMS
-            'from' => ['nullable', 'string', 'max:11'] // Sender ID validation
-        ]);
-
+        $validated = $this->validateRequest($request);
         $user = Auth::user();
 
-        // Enhanced user/client validation
         if (!$user?->client) {
-            Log::error("SMS Failed: Invalid user/client", [
-                'user_id' => $user->id ?? null,
-                'ip' => $request->ip()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Account not properly configured',
-                'error_code' => 'ACCOUNT_ERROR'
-            ], 403);
+            return $this->errorResponse('Account not properly configured', 'ACCOUNT_ERROR', 403);
         }
 
-        // Calculate message metrics
-        $messageLength = strlen($validated['message']);
-        $smsParts = ceil($messageLength / 153); // 153 chars per part for GSM encoding
-        $estimatedCost = $user->client->cost_per_sms * $smsParts;
+        $messageMetrics = $this->calculateMessageMetrics($validated['message'], $user->client->cost_per_sms);
 
-        // Balance check with logging
-        if ($user->client->account_balance < $estimatedCost) {
-            Log::warning("SMS Blocked: Insufficient funds", [
-                'client_id' => $user->client->id,
-                'required' => $estimatedCost,
-                'available' => $user->client->account_balance,
-                'phone' => substr($validated['to'], -4) // Log last 4 digits only for privacy
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient balance',
-                'required' => $estimatedCost,
-                'current_balance' => $user->client->account_balance,
-                'error_code' => 'INSUFFICIENT_FUNDS'
-            ], 402);
+        if ($user->client->account_balance < $messageMetrics['estimatedCost']) {
+            return $this->insufficientBalanceResponse($user, $messageMetrics['estimatedCost'], $validated['to']);
         }
 
         try {
@@ -104,89 +37,130 @@ class SMSController extends Controller
 
             $gatewayResponse = $user->notify($notification);
 
-            // Validate gateway response structure
             if (!$this->isValidGatewayResponse($gatewayResponse)) {
-                Log::error("SMS Failed: Invalid gateway response", [
-                    'user_id' => $user->id,
-                    'client_id' => $user->client->id,
-                    'response' => $gatewayResponse
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid response from SMS gateway',
-                    'error_code' => 'GATEWAY_ERROR'
-                ], 502);
+                return $this->gatewayErrorResponse($user, $gatewayResponse);
             }
 
-            // Process successful response
-            $actualCost = $this->calculateActualCost($gatewayResponse, $estimatedCost);
-            $newBalance = $user->client->account_balance - $actualCost;
+            return $this->processSuccessfulResponse($user, $validated, $gatewayResponse, $messageMetrics);
 
-            // Begin database transaction for atomic operations
-            DB::transaction(function () use ($user, $newBalance, $gatewayResponse, $validated, $smsParts, $actualCost) {
-                $user->client->update(['account_balance' => $newBalance]);
-
-                SmsLog::create([
-                    'user_id' => $user->id,
-                    'client_id' => $user->client->id,
-                    'message_id' => $gatewayResponse['message_id'],
-                    'recipient' => $validated['to'],
-                    'message' => $validated['message'],
-                    'message_parts' => $smsParts,
-                    'cost' => $actualCost,
-                    'new_balance' => $newBalance,
-                    'status' => 'delivered',
-                    'gateway_status' => $gatewayResponse['status'] ?? null,
-                    'gateway_response' => $gatewayResponse
-                ]);
-            });
-
-            // Log successful delivery
-            Log::info("SMS Delivered Successfully", [
-                'message_id' => $gatewayResponse['message_id'],
-                'client_id' => $user->client->id,
-                'cost' => $actualCost,
-                'balance_change' => -$actualCost
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'SMS delivered successfully',
-                'data' => $this->formatSuccessResponse($validated, $gatewayResponse, $smsParts, $newBalance)
-            ]);
-
+        } catch (ValidationException $e) {
+            return $this->handleValidationError($e, $request);
         } catch (\Exception $e) {
             return $this->handleSmsError($e, $user, $request);
         }
     }
 
-    // Helper methods:
+    // Helper Methods
 
-    protected function calculateActualCost(array $response, float $estimated): float
+    private function validateRequest(Request $request): array
     {
-        return $response['cost'] ?? $estimated;
+        return $request->validate([
+            'to' => ['required', 'regex:/^\+[1-9]\d{7,14}$/'],
+            'message' => 'required|string|max:1600',
+            'from' => ['nullable', 'string', 'max:11']
+        ]);
     }
 
-    protected function formatSuccessResponse(array $data, array $response, int $parts, float $balance): array
+    private function calculateMessageMetrics(string $message, float $costPerSms): array
     {
+        $messageLength = strlen($message);
+        $smsParts = ceil($messageLength / 153);
         return [
-            'message_id' => $response['message_id'],
-            'recipient' => $data['to'],
-            'parts' => $parts,
-            'cost' => $response['cost'] ?? null,
-            'balance' => $balance,
-            'gateway_status' => $response['status']
+            'messageLength' => $messageLength,
+            'smsParts' => $smsParts,
+            'estimatedCost' => $costPerSms * $smsParts
         ];
+    }
+
+    private function insufficientBalanceResponse($user, float $required, string $phone): JsonResponse
+    {
+        Log::warning("SMS Blocked: Insufficient funds", [
+            'client_id' => $user->client->id,
+            'required' => $required,
+            'available' => $user->client->account_balance,
+            'phone' => substr($phone, -4)
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Insufficient balance',
+            'required' => $required,
+            'current_balance' => $user->client->account_balance,
+            'error_code' => 'INSUFFICIENT_FUNDS'
+        ], 402);
+    }
+
+    private function processSuccessfulResponse($user, array $validated, array $response, array $metrics): JsonResponse
+    {
+        $actualCost = $response['cost'] ?? $metrics['estimatedCost'];
+        $newBalance = $user->client->account_balance - $actualCost;
+
+        DB::transaction(function () use ($user, $newBalance, $response, $validated, $metrics, $actualCost) {
+            $user->client->update(['account_balance' => $newBalance]);
+
+            SmsLog::create([
+                'user_id' => $user->id,
+                'client_id' => $user->client->id,
+                'message_id' => $response['message_id'],
+                'recipient' => $validated['to'],
+                'message' => $validated['message'],
+                'message_parts' => $metrics['smsParts'],
+                'cost' => $actualCost,
+                'new_balance' => $newBalance,
+                'status' => 'delivered',
+                'gateway_status' => $response['status'] ?? null,
+                'gateway_response' => $response
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'SMS delivered successfully',
+            'data' => [
+                'message_id' => $response['message_id'],
+                'recipient' => $validated['to'],
+                'parts' => $metrics['smsParts'],
+                'cost' => $actualCost,
+                'balance' => $newBalance,
+                'gateway_status' => $response['status'] ?? null
+            ]
+        ]);
+    }
+
+    private function isValidGatewayResponse($response): bool
+    {
+        return is_array($response)
+            && ($response['success'] ?? false)
+            && isset($response['message_id']);
+    }
+
+    private function gatewayErrorResponse($user, $response): JsonResponse
+    {
+        Log::error("SMS Failed: Invalid gateway response", [
+            'user_id' => $user->id,
+            'client_id' => $user->client->id,
+            'response' => $response
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid response from SMS gateway',
+            'error_code' => 'GATEWAY_ERROR'
+        ], 502);
+    }
+
+    private function errorResponse(string $message, string $code, int $status): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => $message,
+            'error_code' => $code
+        ], $status);
     }
 
     protected function handleValidationError(ValidationException $e, Request $request): JsonResponse
     {
-        Log::warning("SMS Validation Failed", [
-            'errors' => $e->errors(),
-            'request' => $request->except(['message'])
-        ]);
-
+        Log::warning("SMS Validation Failed", $e->errors());
         return response()->json([
             'success' => false,
             'message' => 'Invalid request data',
@@ -199,8 +173,7 @@ class SMSController extends Controller
     {
         Log::critical("SMS Processing Error", [
             'client_id' => $user->client->id ?? null,
-            'error' => $e->getMessage(),
-            'request' => $request->except(['message', 'to'])
+            'error' => $e->getMessage()
         ]);
 
         return response()->json([
@@ -209,46 +182,5 @@ class SMSController extends Controller
             'error' => config('app.debug') ? $e->getMessage() : null,
             'error_code' => 'PROCESSING_FAILURE'
         ], 500);
-    }
-
-    // Helper method to validate gateway response
-    protected function isValidGatewayResponse($response): bool
-    {
-        return is_array($response) &&
-            isset($response['success']) &&
-            $response['success'] === true &&
-            isset($response['message_id']);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(SMS $sMS)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(SMS $sMS)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateSMSRequest $request, SMS $sMS)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(SMS $sMS)
-    {
-        //
     }
 }
