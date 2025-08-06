@@ -42,7 +42,23 @@ class SmsChannel
 
             if ($response->successful()) {
 
+                // Calculate message metrics
+                $messageLength = strlen($message);
+                $smsParts = ceil($messageLength / 160);
+                $cost = $user->client->cost_per_sms * $smsParts;
+                $currentBalance = $user->client->account_balance;
+
                 $responseData = $response->json();
+
+                $responseData =  [
+                    'message_id' => $responseData['msgId'] ?? null,
+                    'recipient' => $responseData['to'] ?? null,
+                    'cost' => $responseData['cost'] ?? null,
+                    'status' => $responseData['status'] ?? null,
+                    'status_code' => $responseData['statusCode'] ?? null,
+                    'cost' => $cost,
+                    'current_balance' => $currentBalance,
+                ];
 
                 Log::info("SMS Sent Successfully", [
                     'message_id' => $responseData['msgId'] ?? null,
@@ -50,10 +66,12 @@ class SmsChannel
                     'cost' => $responseData['cost'] ?? null,
                     'status' => $responseData['status'] ?? null,
                     'status_code' => $responseData['statusCode'] ?? null,
-                    'gateway_response' => $responseData
+                    'gateway_response' => $responseData,
+                    'cost' => $cost,
+                    'current_balance' => $currentBalance,
                 ]);
 
-                return true;
+                return $responseData;
             }
 
             if ($response->failed()) {
