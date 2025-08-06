@@ -16,8 +16,8 @@ class SMSController extends Controller
     public function sendSms(Request $request)
 {
     $validated = $request->validate([
-        'to' => ['required', 'regex:/^\+265\d{9}$/'], // Malawi specific format
-        'message' => 'required|string|max:1600',
+        'to' => ['required', 'regex:/^\+265\d{9}$/'],
+        'message' => 'required|string',
         'from' => ['nullable', 'string', 'max:11', 'regex:/^[a-zA-Z0-9]+$/']
     ]);
 
