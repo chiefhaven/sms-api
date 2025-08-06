@@ -84,39 +84,70 @@ class SMSController extends Controller
         }
 
         // Send notification via the custom sms channel
-        try{
-            $user->notify(new SendSmsNotification($message, $phoneNumber, $from));
-            // Log the SMS details
-            Log::info("SMS Sent", [
+        try {
+            // Create and send notification
+            $notification = new SendSmsNotification($message, $phoneNumber, $from);
+            $gatewayResponse = $user->notify($notification);
+
+            // Log successful SMS
+            Log::info("SMS Sent Successfully", [
                 'client_id' => $user->client->id,
                 'phone' => $phoneNumber,
                 'message_length' => $messageLength,
                 'sms_parts' => $smsParts,
-                'estimated_cost' => $estimatedCost
+                'estimated_cost' => $estimatedCost,
+                'actual_cost' => $gatewayResponse['cost'] ?? null,
+                'message_id' => $gatewayResponse['message_id'] ?? null,
+                'gateway_status' => $gatewayResponse['status'] ?? null
             ]);
+
+            // Update client balance if needed
+            if (isset($gatewayResponse['cost'])) {
+                $newBalance = $user->client->account_balance - $gatewayResponse['cost'];
+                $user->client->update(['account_balance' => $newBalance]);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'SMS sent successfully',
-                'to' => $phoneNumber,
-                'message_length' => $messageLength,
-                'sms_parts' => $smsParts,
-                'estimated_cost' => $estimatedCost
+                'data' => [
+                    'recipient' => $phoneNumber,
+                    'message_id' => $gatewayResponse['message_id'] ?? null,
+                    'message_length' => $messageLength,
+                    'sms_parts' => $smsParts,
+                    'estimated_cost' => $estimatedCost,
+                    'actual_cost' => $gatewayResponse['cost'] ?? null,
+                    'gateway_status' => $gatewayResponse['status'] ?? null,
+                    'new_balance' => $newBalance ?? null
+                ]
             ], 200);
 
-        } catch (\Exception $e) {
-
-            Log::critical("SMS Processing Failed", [
-                'client_id' => $user->client->id ?? null,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning("SMS Validation Failed", [
+                'errors' => $e->errors(),
                 'request' => $request->all()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Internal server error while processing SMS',
-                'error' => null,
-                'error_code' => 'INTERNAL_ERROR'
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+                'error_code' => 'VALIDATION_ERROR'
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::critical("SMS Processing Failed", [
+                'client_id' => $user->client->id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->except(['message']) // Exclude sensitive data
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process SMS',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error_code' => 'PROCESSING_ERROR'
             ], 500);
         }
     }
