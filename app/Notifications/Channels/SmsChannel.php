@@ -46,7 +46,7 @@ class SmsChannel
                 $messageLength = strlen($message);
                 $smsParts = ceil($messageLength / 160);
                 $cost = $user->client->cost_per_sms * $smsParts;
-                $currentBalance = $user->client->account_balance;
+                $currentBalance = $user->client->account_balance - $cost;
 
                 $responseData = $response->json();
 
