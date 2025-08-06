@@ -46,11 +46,10 @@ class SendSmsNotification extends Notification
 
     public function toSms($notifiable)
     {
-        return [
-            'message' => $this->message,
-            'phone' => $this->phoneNumber,
-            'from' => $notifiable->client->sender_id ?? config('services.backbone_sms.from')
-        ];
+        // return [
+        //     'message' => $this->message,
+        // ];
+        return sprintf('Test');
     }
 
     /**
