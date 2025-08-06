@@ -42,13 +42,17 @@ class SmsChannel
 
             if ($response->successful()) {
                 Log::info("SMS Sent: " . $response->body());
+
+                return true;
             }
 
             if ($response->failed()) {
                 Log::error("SMS Failed: " . $response->body());
+                return false;
             }
         } catch (\Exception $e) {
             Log::error("Error sending SMS: " . $e->getMessage());
+            return false;
         }
     }
 }
