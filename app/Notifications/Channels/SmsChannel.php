@@ -61,13 +61,13 @@ class SmsChannel
                     'gateway' => 'backbone'
                 ]);
 
-                return [
+                return response()->json([
                     'success' => true,
                     'message_id' => $responseData['msgId'],
                     'cost' => $this->parseMoney($responseData['cost']),
                     'status' => $responseData['status'],
                     'raw_response' => $responseData
-                ];
+                ], 200);
             }
 
             // Handle specific HTTP errors
