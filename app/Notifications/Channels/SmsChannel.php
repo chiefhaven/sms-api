@@ -13,8 +13,8 @@ class SmsChannel
             return;
         }
 
-        $message = $notification->toSms($notifiable)->message;
-        $phoneNumber = $notification->toSms($notifiable)->to;
+        $message = $notification->toSms($notifiable)['message'];
+        $phoneNumber = $notification->toSms($notifiable)['to'];
 
         if (!$phoneNumber) {
             Log::error("SMS Error: No phone number found for the recipient.");
