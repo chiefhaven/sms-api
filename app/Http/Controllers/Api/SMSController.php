@@ -103,7 +103,8 @@ class SMSController extends Controller
             );
 
             $gatewayResponse = $user->notify($notification);
-            if (!$gatewayResponse) {
+
+            if ($gatewayResponse == false) {
                 Log::error("SMS Failed: Notification not sent", [
                     'user_id' => $user->id,
                     'recipient' => $validated['to'],
