@@ -12,7 +12,15 @@ class Client extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'name', 'company', 'address', 'email', 'phone', 'sender_id',
+        'name',
+        'company',
+        'address',
+        'email',
+        'phone',
+        'sender_id',
+        'status',
+        'account_balance',
+        'cost_per_sms',
     ];
 
     public function user()
