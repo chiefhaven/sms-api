@@ -26,3 +26,19 @@ Route::get('/profile-static', [HomeController::class, 'index'])->name('profile-s
 Route::get('/sign-in-static', [HomeController::class, 'index'])->name('sign-in-static');
 
 Route::get('/sign-up-static', [HomeController::class, 'index'])->name('sign-up-static');
+
+Route::get('/migrate', function () {
+    // Check that the environment is not production before running the migration
+    if (app()->environment('production')) {
+        abort(403, 'Unauthorized action.');
+    }
+
+    // Ensure the user has an appropriate role or permission (e.g., 'admin')
+    // if (!auth()->user()->hasRole('superAdmin')) {
+    //     abort(403, 'Unauthorized action.');
+    // }
+
+    // Run the migration with the '--force' flag
+    Artisan::call('migrate', ['--force' => true]);
+    return response()->json(['message' => 'Database migration completed successfully!']);
+})->middleware(['auth']);
