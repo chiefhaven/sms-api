@@ -63,10 +63,10 @@ class SMSController extends Controller
             Log::info($gatewayResponse);
 
             if (!is_array($gatewayResponse) || ($gatewayResponse['status'] ?? null) !== 'SUCCESS') {
-                throw new \Exception($gatewayResponse['message'] ?? 'SMS gateway failed');
+                throw new \Exception($gatewayResponse['message'] ?? 'Connection failed');
             }
 
-            $actualCost = $gatewayResponse['cost'];
+            $actualCost = $user->client->cost_per_sms * $smsParts;
             $newBalance = $user->client->account_balance - $actualCost;
 
             DB::transaction(function () use ($user, $newBalance, $gatewayResponse, $validated, $smsParts) {
