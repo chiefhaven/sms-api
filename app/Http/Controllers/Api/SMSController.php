@@ -69,7 +69,7 @@ class SMSController extends Controller
             $actualCost = $user->client->cost_per_sms * $smsParts;
             $newBalance = $user->client->account_balance - $actualCost;
 
-            DB::transaction(function () use ($user, $newBalance, $gatewayResponse, $validated, $smsParts) {
+            DB::transaction(function () use ($user, $newBalance, $gatewayResponse, $validated, $smsParts, $actualCost) {
                 $user->client->update(['account_balance' => $newBalance]);
 
                 SmsLog::create([
@@ -79,8 +79,8 @@ class SMSController extends Controller
                     'recipient' => $gatewayResponse['recipient'],
                     'message' => $validated['message'],
                     'message_parts' => $smsParts,
-                    'cost' => $gatewayResponse['cost'],
-                    'new_balance' => $gatewayResponse['new_balance'],
+                    'cost' => $actualCost,
+                    'new_balance' => $newBalance,
                     'status' => 'delivered',
                     'status_code' => $gatewayResponse['status_code'] ?? '',
                     'description' => $gatewayResponse['description'] ?? '',
@@ -97,7 +97,7 @@ class SMSController extends Controller
                 'message_id' => $data['msgId'] ?? null,
                 'recipient' => $data['to'] ?? null,
                 'cost' => floatval(str_replace(['MWK', ','], '', $data['cost'] ?? '0')),
-                'new_balance' => floatval(str_replace(['MWK', ','], '', $data['balance'] ?? '0')),
+                'new_balance' => floatval(str_replace(['MWK', ','], '', $newBalance ?? '0')),
                 'status_code' => $data['statusCode'] ?? null,
                 'description' => $data['desc'] ?? null,
                 'mnc' => $data['mnc'] ?? null,
