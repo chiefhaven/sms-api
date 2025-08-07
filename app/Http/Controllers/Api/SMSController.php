@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SmsLog;
+use App\Notifications\Channels\SmsChannel;
 use App\Notifications\SendSmsNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,7 +52,15 @@ class SMSController extends Controller
                 $validated['from'] ?? $user->client->sender_id
             );
 
-            $gatewayResponse = $user->notify($notification);
+            $notification = new SendSmsNotification(
+                $validated['message'],
+                $validated['to'],
+                $validated['from'] ?? $user->client->sender_id
+            );
+
+            $gatewayResponse = (new SmsChannel())->send($user, $notification);
+
+            Log::info($gatewayResponse);
 
             if (!is_array($gatewayResponse) || ($gatewayResponse['status'] ?? null) !== 'SUCCESS') {
                 throw new \Exception($gatewayResponse['message'] ?? 'SMS gateway failed');
