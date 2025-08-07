@@ -23,7 +23,6 @@ class SmsChannel
             $phoneNumber = $smsData['to'] ?? null;
             $senderId = $smsData['from'] ?? config('services.backbone_sms.from');
 
-            // Validate required fields
             if (empty($message) || empty($phoneNumber)) {
                 throw new \InvalidArgumentException('Missing message or recipient');
             }
@@ -46,6 +45,7 @@ class SmsChannel
                 return $this->formatSuccessResponse($responseData);
             }
 
+            Log::warning('SMS gateway responded with failure', $responseData);
             return $this->handleFailedResponse($response, $responseData);
 
         } catch (ConnectionException $e) {
@@ -57,49 +57,32 @@ class SmsChannel
         }
     }
 
-    private function formatSuccessResponse(array $responseData): array
+    protected function errorResponse($message, $connectionError = false)
     {
         return [
-            'success' => true,
-            'message_id' => $responseData['msgId'],
-            'recipient' => $responseData['to'],
-            'cost' => $this->parseMoney($responseData['cost']),
-            'balance' => $this->parseMoney($responseData['balance']),
-            'status' => $responseData['status'],
-            'status_code' => $responseData['statusCode'],
-            'description' => $responseData['desc'],
-            'raw_response' => $responseData
+            'status' => 'ERROR',
+            'message' => $message,
+            'connection_error' => $connectionError,
         ];
     }
 
-    private function handleFailedResponse($response, array $responseData): array
+    protected function formatSuccessResponse(array $data)
     {
-        $errorMessage = $responseData['desc'] ?? 'Unknown gateway error';
-        Log::error('SMS delivery failed', [
-            'status' => $response->status(),
-            'error' => $errorMessage,
-            'response' => $responseData
-        ]);
-
         return [
-            'success' => false,
-            'error' => $errorMessage,
-            'status_code' => $responseData['statusCode'] ?? $response->status(),
-            'retryable' => $response->serverError()
+            'status' => $data['status'] ?? 'SUCCESS',
+            'message_id' => $data['message_id'] ?? null,
+            'recipient' => $data['to'] ?? null,
+            'cost' => $data['cost'] ?? 0,
+            'raw_response' => $data,
         ];
     }
 
-    private function errorResponse(string $message, bool $retryable = false): array
+    protected function handleFailedResponse($response, array $data)
     {
         return [
-            'success' => false,
-            'error' => $message,
-            'retryable' => $retryable
+            'status' => $data['status'] ?? 'FAILED',
+            'message' => $data['message'] ?? 'Unknown failure',
+            'raw_response' => $data,
         ];
-    }
-
-    private function parseMoney(string $value): float
-    {
-        return (float) preg_replace('/[^0-9.]/', '', $value);
     }
 }
