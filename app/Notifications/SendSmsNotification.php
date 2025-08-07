@@ -15,9 +15,7 @@ class SendSmsNotification extends Notification
     protected string $message;
     protected string $phoneNumber;
     protected string $from;
-    /**
-     * Create a new notification instance.
-     */
+
     public function __construct($message, $phoneNumber, $from)
     {
         $this->message = $message;
@@ -25,30 +23,13 @@ class SendSmsNotification extends Notification
         $this->from = $from;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
-        return ['mail', SmsChannel::class];
+        return [SmsChannel::class];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail(object $notifiable): MailMessage
+    public function toSms($notifiable): array
     {
-        return (new MailMessage)
-            ->line('The introduction to the notification.')
-            ->action('Notification Action', url('/'))
-            ->line('Thank you for using our application!');
-    }
-
-    public function toSms($notifiable)
-    {
-        // Validate and format the phone number
         $formattedNumber = $this->formatPhoneNumber($this->phoneNumber);
 
         return [
@@ -60,20 +41,19 @@ class SendSmsNotification extends Notification
 
     protected function formatPhoneNumber(string $number): string
     {
-        // Remove all non-digit characters
         $cleaned = preg_replace('/[^0-9]/', '', $number);
 
-        // Handle local numbers (assuming Malawi number format)
-        if (strlen($cleaned) === 9 && strpos($cleaned, '0') === 0) {
+        // If number starts with 0 and is 10 digits, convert to +265 format
+        if (strlen($cleaned) === 10 && strpos($cleaned, '0') === 0) {
             return '+265' . substr($cleaned, 1);
         }
 
-        // Handle international numbers missing +
-        if (strlen($cleaned) > 9 && strpos($cleaned, '265') === 0) {
+        // If number starts with 265 and is 12 digits, convert to + format
+        if (strlen($cleaned) === 12 && strpos($cleaned, '265') === 0) {
             return '+' . $cleaned;
         }
 
-        // Return as-is if already properly formatted
+        // If number already has a + and is valid length, return as-is
         if (strpos($number, '+') === 0) {
             return $number;
         }
@@ -81,15 +61,8 @@ class SendSmsNotification extends Notification
         throw new \InvalidArgumentException("Invalid phone number format: {$number}");
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(object $notifiable): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 }
