@@ -110,7 +110,7 @@ class SMSController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send SMS',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error' => 'Something went wrong while processing your request.',
                 'error_code' => 'PROCESSING_ERROR'
             ], 500);
         }
