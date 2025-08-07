@@ -33,13 +33,13 @@ class SMSController extends Controller
 
         $messageLength = strlen($validated['message']);
         $smsParts = ceil($messageLength / 153);
-        $estimatedCost = $user->client->cost_per_sms * $smsParts;
+        $cost = $user->client->cost_per_sms * $smsParts;
 
-        if ($user->client->account_balance < $estimatedCost) {
+        if ($user->client->account_balance < $cost) {
             return response()->json([
                 'success' => false,
                 'message' => 'Insufficient balance',
-                'required' => $estimatedCost,
+                'required' => $cost,
                 'current_balance' => $user->client->account_balance,
                 'error_code' => 'INSUFFICIENT_FUNDS'
             ], 402);
