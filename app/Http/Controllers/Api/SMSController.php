@@ -76,12 +76,16 @@ class SMSController extends Controller
                     'user_id' => $user->id,
                     'client_id' => $user->client->id,
                     'message_id' => $gatewayResponse['message_id'],
-                    'recipient' => $validated['to'],
+                    'recipient' => $gatewayResponse['recipient'],
                     'message' => $validated['message'],
                     'message_parts' => $smsParts,
                     'cost' => $gatewayResponse['cost'],
-                    'new_balance' => $newBalance,
+                    'new_balance' => $gatewayResponse['new_balance'],
                     'status' => 'delivered',
+                    'status_code' => $gatewayResponse['status_code'] ?? '',
+                    'description' => $gatewayResponse['description'] ?? '',
+                    'mnc' => $gatewayResponse['mnc'] ?? null,
+                    'mcc' => $gatewayResponse['mcc'] ?? null,
                     'gateway_response' => json_encode($gatewayResponse['raw_response']),
                 ]);
             });
@@ -89,14 +93,15 @@ class SMSController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'SMS delivered successfully',
-                'data' => [
-                    'message_id' => $gatewayResponse['message_id'],
-                    'recipient' => $gatewayResponse['recipient'],
-                    'cost' => $gatewayResponse['cost'],
-                    'new_balance' => $newBalance,
-                    'parts' => $smsParts,
-                    'gateway_status' => $gatewayResponse['status']
-                ]
+                'status' => $data['status'] ?? 'SUCCESS',
+                'message_id' => $data['msgId'] ?? null,
+                'recipient' => $data['to'] ?? null,
+                'cost' => floatval(str_replace(['MWK', ','], '', $data['cost'] ?? '0')),
+                'new_balance' => floatval(str_replace(['MWK', ','], '', $data['balance'] ?? '0')),
+                'status_code' => $data['statusCode'] ?? null,
+                'description' => $data['desc'] ?? null,
+                'mnc' => $data['mnc'] ?? null,
+                'mcc' => $data['mcc'] ?? null,
             ]);
 
         } catch (\Exception $e) {
