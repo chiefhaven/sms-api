@@ -132,7 +132,7 @@
                             { data: 'status', render: data => renderStatusBadge(data), className: 'text-center' },
                             { data: 'email' },
                             { data: 'phone' },
-                            { data: 'create_date', render: data => data ? new Date(data).toLocaleDateString() : 'N/A', className: 'text-center' },
+                            { data: 'created_at', render: data => data ? new Date(data).toLocaleDateString() : 'N/A', className: 'text-center' },
                             { data: null, render: renderActions, orderable: false, className: 'text-center' }
                         ],
                         createdRow: (row, data) => $(row).attr('data-id', data.id),

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,8 @@ Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware(
 Route::get('/profile', [HomeController::class, 'index'])->name('profile')->middleware('auth:sanctum');
 
 Route::get('/clients', [ClientController::class, 'index'])->name('clients')->middleware('auth:sanctum');
+
+Route::get('/billing', [BillingController::class, 'index'])->name('billing')->middleware('web','auth:sanctum');
 
 Auth::routes();
 

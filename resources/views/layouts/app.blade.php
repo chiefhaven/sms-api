@@ -31,7 +31,6 @@
 
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment-with-locales.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
 
     <link rel="stylesheet" href="//cdn.datatables.net/1.10.19/css/dataTables.bootstrap4.min.css">
@@ -71,6 +70,8 @@
                 <main class="main-content border-radius-lg">
                     @yield('content')
                 </main>
+            @include('layouts.footers.auth.footer')
+
             @include('components.fixed-plugin')
         @endif
     @endauth

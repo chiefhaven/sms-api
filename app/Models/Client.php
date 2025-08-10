@@ -25,6 +25,11 @@ class Client extends Model
 
     public function user()
     {
-        return $this->hasOne(\App\Models\User::class);
+        return $this->hasOne(User::class);
+    }
+
+    public function billing()
+    {
+        return $this->hasMany(billing::class);
     }
 }

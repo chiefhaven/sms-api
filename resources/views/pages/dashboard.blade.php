@@ -10,7 +10,7 @@
                         <div class="row">
                             <div class="col-8">
                                 <div class="numbers">
-                                    <p class="text-sm mb-0 text-uppercase font-weight-bold">Today's Money</p>
+                                    <p class="text-sm mb-0 text-uppercase font-weight-bold">Todays Money</p>
                                     <h5 class="font-weight-bolder">
                                         $53,000
                                     </h5>
@@ -35,7 +35,7 @@
                         <div class="row">
                             <div class="col-8">
                                 <div class="numbers">
-                                    <p class="text-sm mb-0 text-uppercase font-weight-bold">Today's Users</p>
+                                    <p class="text-sm mb-0 text-uppercase font-weight-bold">Todays Users</p>
                                     <h5 class="font-weight-bolder">
                                         2,300
                                     </h5>
@@ -171,7 +171,6 @@
                 </div>
             </div>
         </div>
-        @include('layouts.footers.auth.footer')
     </div>
 @endsection
 

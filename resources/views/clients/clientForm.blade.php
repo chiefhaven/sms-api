@@ -1,5 +1,5 @@
 <!-- Create / Update Client Modal -->
-    <div class="modal fade" id="clientFormModal" tabindex="-1" aria-hidden="true" v-if="showClientForm">
+    <div class="modal fade" id="clientFormModal" tabindex="-1" aria-hidden="true" v-show="showClientForm">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <form @submit.prevent="saveClient">
