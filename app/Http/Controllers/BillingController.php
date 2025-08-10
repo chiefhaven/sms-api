@@ -8,8 +8,8 @@ use App\Http\Requests\UpdateBillingRequest;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Bill;     // Assuming you have a Bill model
-use App\Models\Client;   // Assuming Client model exists
+use App\Models\Bill;
+use App\Models\Client;
 use Illuminate\Support\Facades\Validator;
 use DB;
 
