@@ -11,9 +11,9 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth:sanctum');
 
-Route::get('/home', [HomeController::class, 'index'])->name('page');
+Route::get('/home', [HomeController::class, 'index'])->name('page')->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -29,4 +29,10 @@ Route::middleware(['web'])->group(function () {
     Route::get('/clients', [ClientController::class, 'fetchClients'])->name('clients.fetch');
     Route::post('/updateClientStatus/{client}', [ClientController::class, 'updateStatus'])->name('clients.updateStatus');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+});
+
+Route::middleware(['web','auth:sanctum'])->group(function () {
+    Route::post('/clients', [ClientController::class, 'store']);
+    Route::put('/clients/{id}', [ClientController::class, 'update']);
+    Route::post('/updateClientStatus/{id}', [ClientController::class, 'updateStatus']);
 });

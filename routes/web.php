@@ -9,23 +9,23 @@ Route::get('/', function () {
 });
 
 
-Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth:sanctum');
 
-Route::get('/profile', [HomeController::class, 'index'])->name('profile');
+Route::get('/profile', [HomeController::class, 'index'])->name('profile')->middleware('auth:sanctum');
 
-Route::get('/clients', [ClientController::class, 'index'])->name('clients');
+Route::get('/clients', [ClientController::class, 'index'])->name('clients')->middleware('auth:sanctum');
 
 Auth::routes();
 
-Route::get('/virtual-reality', [HomeController::class, 'index'])->name('virtual-reality');
+Route::get('/virtual-reality', [HomeController::class, 'index'])->name('virtual-reality')->middleware('auth:sanctum');
 
-Route::get('/rtl', [HomeController::class, 'index'])->name('rtl');
+Route::get('/rtl', [HomeController::class, 'index'])->name('rtl')->middleware('auth:sanctum');
 
-Route::get('/profile-static', [HomeController::class, 'index'])->name('profile-static');
+Route::get('/profile-static', [HomeController::class, 'index'])->name('profile-static')->middleware('auth:sanctum');
 
-Route::get('/sign-in-static', [HomeController::class, 'index'])->name('sign-in-static');
+Route::get('/sign-in-static', [HomeController::class, 'index'])->name('sign-in-static')->middleware('auth:sanctum');
 
-Route::get('/sign-up-static', [HomeController::class, 'index'])->name('sign-up-static');
+Route::get('/sign-up-static', [HomeController::class, 'index'])->name('sign-up-static')->middleware('auth:sanctum');
 
 Route::get('/migrate', function () {
     // Check that the environment is not production before running the migration

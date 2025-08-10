@@ -3465,12 +3465,12 @@ textarea.form-control-lg {
 }
 .btn-primary:hover {
   color: #000;
-  background-color: #fc7a5d;
+  background-color: #f5365c;
   border-color: #fb7353;
 }
 .btn-check:focus + .btn-primary, .btn-primary:focus {
   color: #000;
-  background-color: #fc7a5d;
+  background-color: #f5365c;
   border-color: #fb7353;
   box-shadow: 0 0 0 0.2rem rgba(213, 84, 54, 0.5);
 }
@@ -3585,12 +3585,12 @@ textarea.form-control-lg {
 }
 .btn-warning:hover {
   color: #000;
-  background-color: #fc7a5d;
+  background-color: #f5365c;
   border-color: #fb7353;
 }
 .btn-check:focus + .btn-warning, .btn-warning:focus {
   color: #000;
-  background-color: #fc7a5d;
+  background-color: #f5365c;
   border-color: #fb7353;
   box-shadow: 0 0 0 0.2rem rgba(213, 84, 54, 0.5);
 }

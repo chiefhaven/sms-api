@@ -9,7 +9,9 @@ use App\Http\Requests\UpdateClientRequest;
 use Illuminate\Http\JsonResponse;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Hash;
+use Str;
+use App\Models\User;
 class ClientController extends Controller
 {
     /**
@@ -81,9 +83,40 @@ class ClientController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreClientRequest $request)
+    public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'name'            => 'required|string|max:255',
+            'company'         => 'nullable|string|max:255',
+            'sender_id'       => 'nullable|string|max:255',
+            'account_balance' => 'nullable|numeric',
+            'status'          => 'required|string|in:active,inactive,pending,completed',
+            'email'           => 'required|email|max:255|unique:users,email', // ensure user email is unique
+            'phone'           => 'nullable|string|max:20',
+        ]);
+
+        // Wrap in transaction to keep data consistent
+        return \DB::transaction(function () use ($validated) {
+
+
+            // Create the client, linked to the user
+            $clientData = collect($validated)->except(['password'])->toArray();
+            $client = Client::create($clientData);
+
+            // Create the user
+            $user = User::create([
+                'name'     => $client->name,
+                'email'    => $validated['email'],
+                'client_id' => $client->id,
+                'password' => Hash::make(Str::random(10)), // Generate a random password
+            ]);
+
+            return response()->json([
+                'message' => 'Client and user account created successfully.',
+                'client'  => $client,
+                'user'    => $user
+            ], 201);
+        });
     }
 
     /**
@@ -105,9 +138,24 @@ class ClientController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateClientRequest $request, Client $client)
+    public function update(Request $request, $id)
     {
-        //
+        $validated = $request->validate([
+            'name'            => 'required|string|max:255',
+            'company'         => 'nullable|string|max:255',
+            'sender_id'       => 'nullable|string|max:255',
+            'account_balance' => 'nullable|numeric',
+            'status'          => 'required|string|in:active,inactive,pending,completed',
+            'phone'           => 'nullable|string|max:20',
+        ]);
+
+        $client = Client::findOrFail($id);
+        $client->update($validated);
+
+        return response()->json([
+            'message' => 'Client updated successfully.',
+            'client'  => $client
+        ], 200);
     }
 
     /**
@@ -118,6 +166,6 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
         $client->delete();
 
-        return response()->json(['success' => true]);
+        return redirect()->back()->with('success', 'Client deleted successfully.');
     }
 }
