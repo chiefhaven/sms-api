@@ -19,7 +19,7 @@ class SMSController extends Controller
         $validated = $request->validate([
             'to' => ['required', 'regex:/^(?:\+265|0)?\d{9}$/'],
             'message' => 'required|string',
-            'from' => ['nullable', 'string', 'max:11', 'regex:/^[a-zA-Z0-9]+$/']
+            'from' => ['nullable', 'string', 'max:11', 'regex:/^[a-zA-Z0-9\s]+$/']
         ]);
 
         $user = Auth::user();
