@@ -15,8 +15,7 @@ return [
 
     'allowed_methods' => ['*'], // allow all HTTP methods (GET, POST, etc.)
 
-    'allowed_origins' => ['http://dsms.darondrivingschool.com',
-        'https://dsms.darondrivingschool.com',],
+    'allowed_origins' => ['*'],
     // or specify your frontend domains:
     // ['https://frontend1.example.com', 'https://frontend2.example.com']
 
