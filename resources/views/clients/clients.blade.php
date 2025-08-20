@@ -29,6 +29,7 @@
                                         <th>Account Balance</th>
                                         <th>Status</th>
                                         <th>Email</th>
+                                        <th>Tokens</th>
                                         <th>Phone</th>
                                         <th class="text-center">Create Date</th>
                                         <th class="text-center">Action</th>
@@ -131,6 +132,7 @@
                             { data: 'account_balance', render: data => `<strong>K${parseFloat(data).toFixed(2)}</strong>`, className: 'text-end' },
                             { data: 'status', render: data => renderStatusBadge(data), className: 'text-center' },
                             { data: 'email' },
+                            { data: 'tokens' },
                             { data: 'phone' },
                             { data: 'created_at', render: data => data ? new Date(data).toLocaleDateString() : 'N/A', className: 'text-center' },
                             { data: null, render: renderActions, orderable: false, className: 'text-center' }

@@ -48,6 +48,7 @@ class ClientController extends Controller
             ->addColumn('account_balance', fn($client) => $client->account_balance)
             ->addColumn('status', fn($client) => $client->status)
             ->addColumn('email', fn($client) => optional($client->user)->email ?? 'N/A')
+            ->addColumn('tokens', fn($client) => optional($client->user)->tokens[0]->token ?? 'N/A')
             ->addColumn('created_at', fn($client) => $client->created_at)
             ->addColumn('actions', function ($client) {
                 return $client->id; // Will be handled in frontend
