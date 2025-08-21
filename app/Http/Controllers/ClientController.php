@@ -169,4 +169,31 @@ class ClientController extends Controller
 
         return redirect()->back()->with('success', 'Client deleted successfully.');
     }
+
+    public function fetchClientBalance(): JsonResponse
+    {
+        // Get the currently authenticated user
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'error' => 'Unauthenticated'
+            ], 401);
+        }
+
+        // Assuming the user is related to a client
+        $client = $user->client; // e.g., User model has client() relation
+
+        if (!$client) {
+            return response()->json([
+                'error' => 'Client not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'account_balance' => $client->account_balance,
+            'cost_per_sms' => $client->cost_per_sms,
+            'status' => $client->status,
+        ]);
+    }
 }
