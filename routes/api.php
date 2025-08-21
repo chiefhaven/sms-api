@@ -26,10 +26,10 @@ Route::post('login', [AuthController::class, 'login'])->name('login.perform'); /
 
 
 Route::post('/send-sms', [SMSController::class, 'sendSms'])->name('send-sms')->middleware('auth:sanctum');
+Route::get('/client-balance', [ClientController::class, 'fetchClientBalance'])->name('client-balance')->middleware('auth:sanctum');
 
 Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::get('/clients', [ClientController::class, 'fetchClients'])->name('clients.fetch');
-    Route::get('/client-balance', [ClientController::class, 'fetchClientBalance'])->name('clients.fetchClientBalance');
     Route::post('/updateClientStatus/{client}', [ClientController::class, 'updateStatus'])->name('clients.updateStatus');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
 });
