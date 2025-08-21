@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Str;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 class ClientController extends Controller
 {
     /**
