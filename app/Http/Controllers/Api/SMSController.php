@@ -45,7 +45,7 @@ class SMSController extends Controller
             ], 402);
         }
 
-        if ($user->client->status !== 'active') {
+        if ($user->client->status == 'inactive') {
             return response()->json([
                 'success' => false,
                 'message' => 'Client account is not active',
