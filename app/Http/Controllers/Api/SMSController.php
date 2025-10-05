@@ -45,14 +45,6 @@ class SMSController extends Controller
             ], 402);
         }
 
-        if ($user->client->status !== 'active') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Client account is not active',
-                'error_code' => 'ACCOUNT_INACTIVE'
-            ], 403);
-        }
-
         try {
             $notification = new SendSmsNotification(
                 $validated['message'],

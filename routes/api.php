@@ -25,11 +25,8 @@ Route::post('register', [AuthController::class, 'register'])->name('register.api
 Route::post('login', [AuthController::class, 'login'])->name('login.perform'); // Login
 
 
-// Protected
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/send-sms-auth', [SMSController::class, 'sendSms']);
-    Route::get('/client-balance-auth', [ClientController::class, 'fetchClientBalance']);
-});
+Route::post('/send-sms', [SMSController::class, 'sendSms'])->name('send-sms')->middleware('auth:sanctum');
+Route::get('/client-balance', [ClientController::class, 'fetchClientBalance'])->name('client-balance')->middleware('auth:sanctum');
 
 Route::middleware(['web', 'auth:sanctum'])->group(function () {
     Route::get('/clients', [ClientController::class, 'fetchClients'])->name('clients.fetch');
