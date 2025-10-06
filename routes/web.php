@@ -10,7 +10,8 @@ Route::get('/', function () {
 });
 
 
-Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth:sanctum');
+//Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth:sanctum');
+Route::get('/home', [ClientController::class, 'index'])->name('home')->middleware('auth:sanctum');
 
 Route::get('/profile', [HomeController::class, 'index'])->name('profile')->middleware('auth:sanctum');
 
